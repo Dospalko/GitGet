@@ -154,7 +154,11 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
                   <CardDescription>Distribution of programming languages across repositories</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <LanguageBreakdown languages={languages} />
+                  <LanguageBreakdown 
+                    languages={languages} 
+                    repos={repos} 
+                    isLoading={loading} 
+                  />
                 </CardContent>
               </Card>
             </TabsContent>
