@@ -20,7 +20,7 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen p-4 md:p-8 bg-background">
+    <main className="min-h-screen p-4 md:p-8 bg-white">
       <div className="max-w-7xl mx-auto">
         <div className="flex flex-col items-center justify-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-6 text-center">GitHub Profile Visualizer</h1>
