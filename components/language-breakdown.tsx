@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { StarIcon, GitForkIcon } from "lucide-react"
 import { useState } from "react"
 import { LANGUAGE_COLORS } from "@/lib/github"
+import { Skeleton } from "@/components/ui/skeleton"
 
 const DEFAULT_COLOR = "#6e7681"
 
@@ -16,9 +17,62 @@ interface LanguageBreakdownProps {
   isLoading?: boolean
 }
 
+function LanguageBreakdownSkeleton() {
+  return (
+    <div className="space-y-8">
+      {/* Pie Chart Skeleton */}
+      <div className="w-full h-[400px] flex items-center justify-center">
+        <div className="relative">
+          <Skeleton className="w-[240px] h-[240px] rounded-full" />
+          <Skeleton className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120px] h-[120px] rounded-full" />
+        </div>
+      </div>
+
+      {/* Legend Skeleton */}
+      <div className="flex justify-center gap-4 flex-wrap">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Skeleton className="w-3 h-3 rounded-full" />
+            <Skeleton className="w-16 h-4" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function LanguageDialogSkeleton() {
+  return (
+    <div className="space-y-4">
+      {[1, 2, 3].map((i) => (
+        <Card key={i} className="p-4">
+          <div className="flex justify-between items-start">
+            <div className="space-y-2 flex-1">
+              <Skeleton className="h-5 w-[200px]" />
+              <Skeleton className="h-4 w-full max-w-[300px]" />
+              <div className="flex items-center gap-2 mt-2">
+                <Skeleton className="w-3 h-3 rounded-full" />
+                <Skeleton className="h-4 w-16" />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-4 w-12" />
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  )
+}
+
 export function LanguageBreakdown({ languages, repos = [], isLoading = false }: LanguageBreakdownProps) {
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  if (isLoading) {
+    return <LanguageBreakdownSkeleton />
+  }
 
   // Filter out languages with very small percentages (less than 1%)
   const significantLanguages = languages.filter((lang) => lang.percentage >= 1)
@@ -110,46 +164,50 @@ export function LanguageBreakdown({ languages, repos = [], isLoading = false }: 
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 max-h-[60vh] overflow-y-auto">
-            {selectedLanguage && getRepositoriesForLanguage(selectedLanguage).map((repo) => (
-              <Card key={repo.id} className="p-4">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-medium">
-                      <a 
-                        href={repo.html_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="hover:underline"
-                      >
-                        {repo.name}
-                      </a>
-                    </h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {repo.description || "No description provided"}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
-                      <div 
-                        className="w-3 h-3 rounded-full"
-                        style={{ 
-                          backgroundColor: LANGUAGE_COLORS[repo.language as keyof typeof LANGUAGE_COLORS] || DEFAULT_COLOR 
-                        }}
-                      />
-                      {repo.language}
+            {isLoading ? (
+              <LanguageDialogSkeleton />
+            ) : (
+              selectedLanguage && getRepositoriesForLanguage(selectedLanguage).map((repo) => (
+                <Card key={repo.id} className="p-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h3 className="font-medium">
+                        <a 
+                          href={repo.html_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="hover:underline"
+                        >
+                          {repo.name}
+                        </a>
+                      </h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        {repo.description || "No description provided"}
+                      </p>
+                      <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ 
+                            backgroundColor: LANGUAGE_COLORS[repo.language as keyof typeof LANGUAGE_COLORS] || DEFAULT_COLOR 
+                          }}
+                        />
+                        {repo.language}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                      <div className="flex items-center">
+                        <StarIcon className="mr-1 h-4 w-4" />
+                        {repo.stargazers_count}
+                      </div>
+                      <div className="flex items-center">
+                        <GitForkIcon className="mr-1 h-4 w-4" />
+                        {repo.forks_count}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <div className="flex items-center">
-                      <StarIcon className="mr-1 h-4 w-4" />
-                      {repo.stargazers_count}
-                    </div>
-                    <div className="flex items-center">
-                      <GitForkIcon className="mr-1 h-4 w-4" />
-                      {repo.forks_count}
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              ))
+            )}
           </div>
         </DialogContent>
       </Dialog>
