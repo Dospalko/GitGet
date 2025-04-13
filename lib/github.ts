@@ -1,4 +1,14 @@
-// GitHub API client
+// GitHub API client with authentication
+const GITHUB_API_BASE = 'https://api.github.com'
+const headers = {
+  'Accept': 'application/vnd.github.v3+json',
+  'User-Agent': 'GitHub-Profile-Visualizer',
+}
+
+// Add authentication if token exists
+if (process.env.GITHUB_ACCESS_TOKEN) {
+  headers['Authorization'] = `token ${process.env.GITHUB_ACCESS_TOKEN}`
+}
 
 // Define types for GitHub API responses
 export interface GitHubUser {
@@ -27,6 +37,7 @@ export interface GitHubRepo {
   stargazers_count: number
   forks_count: number
   language: string | null
+  languages_url: string
   updated_at: string
   created_at: string
   topics: string[]
@@ -81,76 +92,115 @@ export const LANGUAGE_COLORS: Record<string, string> = {
 // Default color for languages not in the map
 const DEFAULT_COLOR = "#6e7681"
 
-// Simple in-memory cache
-const cache = new Map<string, { data: any; timestamp: number }>()
+// Enhanced cache with type safety
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+}
+
+const cache = new Map<string, CacheEntry<any>>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-async function fetchWithCache(url: string): Promise<any> {
-  // Check cache first
+async function fetchWithCache<T>(url: string): Promise<T> {
   const cached = cache.get(url)
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data
+    return cached.data as T
   }
 
-  // Fetch from API with error handling
   try {
-    const response = await fetch(url, {
-      headers: {
-        "User-Agent": "GitHub-Profile-Visualizer",
-      },
-    })
+    const response = await fetch(url, { headers })
 
     if (!response.ok) {
-      if (response.status === 403 && response.headers.get("X-RateLimit-Remaining") === "0") {
-        throw new Error("GitHub API rate limit exceeded. Please try again later.")
+      if (response.status === 403 && response.headers.get('X-RateLimit-Remaining') === '0') {
+        throw new Error('GitHub API rate limit exceeded. Please try again later or use an access token.')
       }
-      throw new Error(`GitHub API error: ${response.status}`)
+      throw new Error(`GitHub API error: ${response.status} - ${await response.text()}`)
     }
 
     const data = await response.json()
-
-    // Update cache
     cache.set(url, { data, timestamp: Date.now() })
-
-    return data
+    return data as T
   } catch (error) {
-    console.error("Error fetching from GitHub API:", error)
+    console.error('Error fetching from GitHub API:', error)
     throw error
   }
 }
 
 // Fetch user profile data
 export async function fetchUser(username: string): Promise<GitHubUser> {
-  return fetchWithCache(`https://api.github.com/users/${username}`)
+  return fetchWithCache<GitHubUser>(`${GITHUB_API_BASE}/users/${username}`)
 }
 
-// Fetch user repositories
+// Fetch all repositories with pagination
 export async function fetchRepos(username: string): Promise<GitHubRepo[]> {
-  // Fetch up to 100 repositories (GitHub API limit per page)
-  return fetchWithCache(`https://api.github.com/users/${username}/repos?per_page=100&sort=updated`)
+  const allRepos: GitHubRepo[] = []
+  let page = 1
+  const perPage = 100
+
+  while (true) {
+    const repos = await fetchWithCache<GitHubRepo[]>(
+      `${GITHUB_API_BASE}/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`
+    )
+    
+    allRepos.push(...repos)
+    
+    if (repos.length < perPage) break
+    page++
+  }
+
+  return allRepos
 }
 
-// Fetch user events (commits, PRs, issues)
+// Fetch user events with better type safety
 export async function fetchEvents(username: string): Promise<GitHubEvent[]> {
-  return fetchWithCache(`https://api.github.com/users/${username}/events?per_page=100`)
+  // Fetch multiple pages of events for better coverage
+  const allEvents: GitHubEvent[] = []
+  const pages = 3 // Fetch 3 pages of events (300 events)
+
+  for (let page = 1; page <= pages; page++) {
+    const events = await fetchWithCache<GitHubEvent[]>(
+      `${GITHUB_API_BASE}/users/${username}/events?per_page=100&page=${page}`
+    )
+    allEvents.push(...events)
+    
+    if (events.length < 100) break // Stop if we get less than a full page
+  }
+
+  return allEvents
 }
 
-// Process language data from repositories
+// Enhanced language processing
 export async function processLanguageData(repos: GitHubRepo[]): Promise<GitHubLanguage[]> {
-  // Count languages across all repositories
-  const languageCounts: Record<string, number> = {}
+  // Fetch language data for each repository
+  const repoLanguages = await Promise.all(
+    repos.map(async (repo) => {
+      try {
+        // Use the correct GitHub API endpoint for languages
+        const languagesUrl = `${GITHUB_API_BASE}/repos/${repo.full_name}/languages`
+        const languages = await fetchWithCache<Record<string, number>>(languagesUrl)
+        return languages
+      } catch (error) {
+        console.error(`Error fetching languages for ${repo.full_name}:`, error)
+        return null
+      }
+    })
+  )
 
-  repos.forEach((repo) => {
-    if (repo.language) {
-      languageCounts[repo.language] = (languageCounts[repo.language] || 0) + 1
-    }
+  // Aggregate language data
+  const languageTotals: Record<string, number> = {}
+  
+  repoLanguages.forEach((languages) => {
+    if (!languages) return
+    
+    Object.entries(languages).forEach(([language, bytes]) => {
+      languageTotals[language] = (languageTotals[language] || 0) + bytes
+    })
   })
 
-  // Calculate total and percentages
-  const total = Object.values(languageCounts).reduce((sum, count) => sum + count, 0)
-
-  // Convert to array and sort by count
-  const languageData = Object.entries(languageCounts)
+  // Calculate percentages and create final language data
+  const total = Object.values(languageTotals).reduce((sum, count) => sum + count, 0)
+  
+  return Object.entries(languageTotals)
     .map(([name, value]) => ({
       name,
       value,
@@ -158,25 +208,22 @@ export async function processLanguageData(repos: GitHubRepo[]): Promise<GitHubLa
       percentage: (value / total) * 100,
     }))
     .sort((a, b) => b.value - a.value)
-
-  return languageData
 }
 
-// Process events to generate contribution data
+// Process events to generate more accurate contribution data
 export function processEventsToContributions(events: GitHubEvent[]): {
   contributionDays: ContributionDay[]
   activitySummary: ActivitySummary
 } {
-  // Create a map to store contributions by date
   const contributionsByDate = new Map<string, ContributionDay>()
-
-  // Initialize with the past 365 days
+  
+  // Initialize past 365 days
   const today = new Date()
   for (let i = 0; i < 365; i++) {
     const date = new Date(today)
     date.setDate(date.getDate() - i)
-    const dateString = date.toISOString().split("T")[0]
-
+    const dateString = date.toISOString().split('T')[0]
+    
     contributionsByDate.set(dateString, {
       date: dateString,
       count: 0,
@@ -190,109 +237,87 @@ export function processEventsToContributions(events: GitHubEvent[]): {
     })
   }
 
-  // Process events to count contributions
+  // Process events
   events.forEach((event) => {
-    const date = new Date(event.created_at).toISOString().split("T")[0]
+    const date = event.created_at.split('T')[0]
     const day = contributionsByDate.get(date)
+    if (!day) return
 
-    if (day) {
-      // Increment the appropriate counter based on event type
-      day.count++
-
-      // Update the contribution level
-      if (day.count <= 0) day.level = 0
-      else if (day.count <= 2) day.level = 1
-      else if (day.count <= 5) day.level = 2
-      else if (day.count <= 10) day.level = 3
-      else day.level = 4
-
-      // Update details based on event type
-      switch (event.type) {
-        case "PushEvent":
-          if (event.payload.commits) {
-            day.details!.commits += event.payload.commits.length
-          }
-          break
-        case "PullRequestEvent":
-          day.details!.pullRequests++
-          break
-        case "IssuesEvent":
-          day.details!.issues++
-          break
-        case "PullRequestReviewEvent":
-          day.details!.reviews++
-          break
-      }
+    switch (event.type) {
+      case 'PushEvent':
+        const commits = event.payload.commits?.length || 0
+        day.count += commits
+        day.details.commits += commits
+        break
+      case 'PullRequestEvent':
+        if (event.payload.action === 'opened') {
+          day.count += 1
+          day.details.pullRequests += 1
+        }
+        break
+      case 'IssuesEvent':
+        if (event.payload.action === 'opened') {
+          day.count += 1
+          day.details.issues += 1
+        }
+        break
+      case 'PullRequestReviewEvent':
+        day.count += 1
+        day.details.reviews += 1
+        break
     }
+
+    // Calculate activity level (0-4)
+    day.level = day.count === 0 ? 0 :
+                day.count <= 2 ? 1 :
+                day.count <= 5 ? 2 :
+                day.count <= 10 ? 3 : 4
   })
 
-  // Convert map to array
-  const contributionDays = Array.from(contributionsByDate.values())
-
-  // Calculate activity summary
-  const activitySummary = calculateActivitySummary(contributionDays)
-
-  return { contributionDays, activitySummary }
-}
-
-// Calculate activity summary from contribution data
-function calculateActivitySummary(contributionDays: ContributionDay[]): ActivitySummary {
-  // Calculate total contributions
-  const totalContributions = contributionDays.reduce((sum, day) => sum + day.count, 0)
-
-  // Calculate streaks
+  // Calculate streaks and monthly contributions
   let currentStreak = 0
   let longestStreak = 0
   let tempStreak = 0
-
-  // Sort days by date (most recent first)
-  const sortedDays = [...contributionDays].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-  // Calculate current streak
-  for (const day of sortedDays) {
-    if (day.count > 0) {
-      currentStreak++
-    } else {
-      break
-    }
-  }
-
-  // Calculate longest streak
-  for (const day of contributionDays.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())) {
-    if (day.count > 0) {
-      tempStreak++
-      longestStreak = Math.max(longestStreak, tempStreak)
-    } else {
-      tempStreak = 0
-    }
-  }
-
-  // Group contributions by month
+  let totalContributions = 0
   const contributionsByMonth: Record<string, number> = {}
 
-  for (const day of contributionDays) {
-    const date = new Date(day.date)
-    const monthKey = date.toLocaleDateString("en-US", { month: "short" })
+  Array.from(contributionsByDate.values())
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .forEach((day) => {
+      // Update streaks
+      if (day.count > 0) {
+        tempStreak++
+        longestStreak = Math.max(longestStreak, tempStreak)
+      } else {
+        tempStreak = 0
+      }
 
-    if (!contributionsByMonth[monthKey]) {
-      contributionsByMonth[monthKey] = 0
-    }
+      // Update current streak if it's within the last 2 days
+      const dayDate = new Date(day.date)
+      const twoDaysAgo = new Date()
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+      
+      if (dayDate >= twoDaysAgo && day.count > 0) {
+        currentStreak = tempStreak
+      }
 
-    contributionsByMonth[monthKey] += day.count
-  }
-
-  // Convert to array and ensure all months are included
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-  const contributionsByMonthArray = months.map((month) => ({
-    month,
-    contributions: contributionsByMonth[month] || 0,
-  }))
+      // Update monthly contributions
+      const month = new Date(day.date).toLocaleString('en-US', { month: 'short' })
+      contributionsByMonth[month] = (contributionsByMonth[month] || 0) + day.count
+      totalContributions += day.count
+    })
 
   return {
-    totalContributions,
-    longestStreak,
-    currentStreak,
-    contributionsByMonth: contributionsByMonthArray,
+    contributionDays: Array.from(contributionsByDate.values()),
+    activitySummary: {
+      totalContributions,
+      longestStreak,
+      currentStreak,
+      contributionsByMonth: Object.entries(contributionsByMonth).map(([month, contributions]) => ({
+        month,
+        contributions,
+      })),
+    },
   }
 }
 

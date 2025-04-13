@@ -5,19 +5,25 @@ import type { GitHubLanguage } from "@/lib/github"
 import { Card } from "@/components/ui/card"
 import { cn } from "@/lib/utils"
 
-interface LanguageBreakdownProps {
-  languages: GitHubLanguage[]
-  isLoading?: boolean
+interface CustomTooltipProps {
+  active?: boolean
+  payload?: any[]
 }
 
-const CustomTooltip = ({ active, payload }: any) => {
+const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload
     return (
       <Card className="p-3 !bg-popover border-border shadow-lg">
-        <p className="font-medium">{data.name}</p>
-        <p className="text-sm text-muted-foreground">
-          {data.value} repositories ({data.percentage.toFixed(1)}%)
+        <div className="flex items-center gap-2">
+          <div 
+            className="w-3 h-3 rounded-full" 
+            style={{ backgroundColor: data.color }}
+          />
+          <p className="font-medium text-foreground">{data.name}</p>
+        </div>
+        <p className="text-sm text-muted-foreground mt-1">
+          {formatBytes(data.value)} ({data.percentage.toFixed(1)}%)
         </p>
       </Card>
     )
@@ -25,96 +31,68 @@ const CustomTooltip = ({ active, payload }: any) => {
   return null
 }
 
+function formatBytes(bytes: number): string {
+  const units = ['B', 'KB', 'MB', 'GB']
+  let value = bytes
+  let unitIndex = 0
+  
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+  
+  return `${value.toFixed(1)} ${units[unitIndex]}`
+}
+
+interface LanguageBreakdownProps {
+  languages: GitHubLanguage[]
+  isLoading?: boolean
+}
+
 export function LanguageBreakdown({ languages, isLoading = false }: LanguageBreakdownProps) {
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        Loading language data...
-      </div>
-    )
-  }
-
-  if (languages.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        No language data available
-      </div>
-    )
-  }
-
-  // Limit to top 10 languages and group the rest as "Other"
-  let formattedData: GitHubLanguage[] = []
-
-  if (languages.length > 10) {
-    const topLanguages = languages.slice(0, 9)
-    const otherLanguages = languages.slice(9)
-
-    const otherValue = otherLanguages.reduce((sum, lang) => sum + lang.value, 0)
-    const otherPercentage = otherLanguages.reduce((sum, lang) => sum + lang.percentage, 0)
-
-    formattedData = [
-      ...topLanguages,
-      {
-        name: "Other",
-        value: otherValue,
-        color: "#6e7681",
-        percentage: otherPercentage,
-      },
-    ]
-  } else {
-    formattedData = languages
-  }
+  // Filter out languages with very small percentages (less than 1%)
+  const significantLanguages = languages.filter((lang) => lang.percentage >= 1)
 
   return (
-    <div className="h-[400px] w-full sm:h-[500px]">
+    <div className="w-full h-[400px]">
       <ResponsiveContainer width="100%" height="100%">
         <PieChart>
           <Pie
-            data={formattedData}
+            data={significantLanguages}
             cx="50%"
-            cy="50%"
+            cy="45%"
             labelLine={false}
-            outerRadius="35%"
+            outerRadius={120}
+            innerRadius={60}
             fill="#8884d8"
             dataKey="value"
             nameKey="name"
-            label={({ name, percent, x, y, midAngle }) => {
-              const RADIAN = Math.PI / 180
-              const radius = 160
-              const centerX = x
-              const centerY = y
-              const sin = Math.sin(-RADIAN * midAngle)
-              const cos = Math.cos(-RADIAN * midAngle)
-              const textAnchor = cos >= 0 ? 'start' : 'end'
-
-              return (
-                <text
-                  x={centerX + cos * radius}
-                  y={centerY + sin * radius}
-                  fill="currentColor"
-                  textAnchor={textAnchor}
-                  dominantBaseline="central"
-                  className="text-xs sm:text-sm"
-                >
-                  {`${name} (${(percent * 100).toFixed(0)}%)`}
-                </text>
-              )
-            }}
-            className="transition-all duration-200 hover:opacity-80"
+            isAnimationActive={!isLoading}
           >
-            {formattedData.map((entry, index) => (
+            {significantLanguages.map((entry, index) => (
               <Cell 
                 key={`cell-${index}`} 
-                fill={entry.color}
-                className="transition-all duration-200 hover:opacity-80"
+                fill={entry.color} 
+                className="outline-none"
               />
             ))}
           </Pie>
-          <Tooltip content={<CustomTooltip />} />
+
+          <Tooltip
+            content={<CustomTooltip />}
+            wrapperStyle={{ outline: 'none' }}
+          />
+
           <Legend
             verticalAlign="bottom"
+            align="center"
+            iconType="circle"
             height={36}
-            className="text-xs sm:text-sm"
+            formatter={(value, entry: any) => (
+              <span className="text-sm text-foreground">
+                {value}
+              </span>
+            )}
           />
         </PieChart>
       </ResponsiveContainer>
