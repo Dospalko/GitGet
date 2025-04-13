@@ -6,7 +6,9 @@ import { Card } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { StarIcon, GitForkIcon } from "lucide-react"
 import { useState } from "react"
-import { cn } from "@/lib/utils"
+import { LANGUAGE_COLORS } from "@/lib/github"
+
+const DEFAULT_COLOR = "#6e7681"
 
 interface LanguageBreakdownProps {
   languages: GitHubLanguage[]
@@ -26,8 +28,13 @@ export function LanguageBreakdown({ languages, repos = [], isLoading = false }: 
     if (!repos) return []
     
     return repos.filter(repo => {
-      if (!repo.languages) return false
-      return Object.keys(repo.languages).includes(language)
+      // Check if the repository's primary language matches
+      if (repo.language === language) return true
+      
+      // Also check in the detailed languages object if available
+      if (repo.languages && Object.keys(repo.languages).includes(language)) return true
+      
+      return false
     }).sort((a, b) => b.stargazers_count - a.stargazers_count)
   }
 
@@ -120,6 +127,15 @@ export function LanguageBreakdown({ languages, repos = [], isLoading = false }: 
                     <p className="text-sm text-muted-foreground mt-1">
                       {repo.description || "No description provided"}
                     </p>
+                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                      <div 
+                        className="w-3 h-3 rounded-full"
+                        style={{ 
+                          backgroundColor: LANGUAGE_COLORS[repo.language as keyof typeof LANGUAGE_COLORS] || DEFAULT_COLOR 
+                        }}
+                      />
+                      {repo.language}
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground">
                     <div className="flex items-center">
