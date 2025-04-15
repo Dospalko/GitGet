@@ -1,13 +1,13 @@
 // GitHub API client with authentication
-const GITHUB_API_BASE = 'https://api.github.com'
+const GITHUB_API_BASE = "https://api.github.com"
 const headers = {
-  'Accept': 'application/vnd.github.v3+json',
-  'User-Agent': 'GitHub-Profile-Visualizer',
+  Accept: "application/vnd.github.v3+json",
+  "User-Agent": "GitHub-Profile-Visualizer",
 }
 
 // Add authentication if token exists
-if (process.env.GITHUB_ACCESS_TOKEN) {
-  headers['Authorization'] = `token ${process.env.GITHUB_ACCESS_TOKEN}`
+if (process.env.GITHUB_TOKEN) {
+  (headers as Record<string, string>)["Authorization"] = `token ${process.env.GITHUB_TOKEN}`
 }
 
 // Define types for GitHub API responses
@@ -111,8 +111,8 @@ async function fetchWithCache<T>(url: string): Promise<T> {
     const response = await fetch(url, { headers })
 
     if (!response.ok) {
-      if (response.status === 403 && response.headers.get('X-RateLimit-Remaining') === '0') {
-        throw new Error('GitHub API rate limit exceeded. Please try again later or use an access token.')
+      if (response.status === 403 && response.headers.get("X-RateLimit-Remaining") === "0") {
+        throw new Error("GitHub API rate limit exceeded. Please try again later or use an access token.")
       }
       throw new Error(`GitHub API error: ${response.status} - ${await response.text()}`)
     }
@@ -121,7 +121,7 @@ async function fetchWithCache<T>(url: string): Promise<T> {
     cache.set(url, { data, timestamp: Date.now() })
     return data as T
   } catch (error) {
-    console.error('Error fetching from GitHub API:', error)
+    console.error("Error fetching from GitHub API:", error)
     throw error
   }
 }
@@ -139,11 +139,11 @@ export async function fetchRepos(username: string): Promise<GitHubRepo[]> {
 
   while (true) {
     const repos = await fetchWithCache<GitHubRepo[]>(
-      `${GITHUB_API_BASE}/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`
+      `${GITHUB_API_BASE}/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`,
     )
-    
+
     allRepos.push(...repos)
-    
+
     if (repos.length < perPage) break
     page++
   }
@@ -159,10 +159,10 @@ export async function fetchEvents(username: string): Promise<GitHubEvent[]> {
 
   for (let page = 1; page <= pages; page++) {
     const events = await fetchWithCache<GitHubEvent[]>(
-      `${GITHUB_API_BASE}/users/${username}/events?per_page=100&page=${page}`
+      `${GITHUB_API_BASE}/users/${username}/events?per_page=100&page=${page}`,
     )
     allEvents.push(...events)
-    
+
     if (events.length < 100) break // Stop if we get less than a full page
   }
 
@@ -183,15 +183,15 @@ export async function processLanguageData(repos: GitHubRepo[]): Promise<GitHubLa
         console.error(`Error fetching languages for ${repo.full_name}:`, error)
         return null
       }
-    })
+    }),
   )
 
   // Aggregate language data
   const languageTotals: Record<string, number> = {}
-  
+
   repoLanguages.forEach((languages) => {
     if (!languages) return
-    
+
     Object.entries(languages).forEach(([language, bytes]) => {
       languageTotals[language] = (languageTotals[language] || 0) + bytes
     })
@@ -199,7 +199,7 @@ export async function processLanguageData(repos: GitHubRepo[]): Promise<GitHubLa
 
   // Calculate percentages and create final language data
   const total = Object.values(languageTotals).reduce((sum, count) => sum + count, 0)
-  
+
   return Object.entries(languageTotals)
     .map(([name, value]) => ({
       name,
@@ -216,14 +216,14 @@ export function processEventsToContributions(events: GitHubEvent[]): {
   activitySummary: ActivitySummary
 } {
   const contributionsByDate = new Map<string, ContributionDay>()
-  
+
   // Initialize past 365 days
   const today = new Date()
   for (let i = 0; i < 365; i++) {
     const date = new Date(today)
     date.setDate(date.getDate() - i)
-    const dateString = date.toISOString().split('T')[0]
-    
+    const dateString = date.toISOString().split("T")[0]
+
     contributionsByDate.set(dateString, {
       date: dateString,
       count: 0,
@@ -239,39 +239,36 @@ export function processEventsToContributions(events: GitHubEvent[]): {
 
   // Process events
   events.forEach((event) => {
-    const date = event.created_at.split('T')[0]
+    const date = event.created_at.split("T")[0]
     const day = contributionsByDate.get(date)
     if (!day) return
 
     switch (event.type) {
-      case 'PushEvent':
+      case "PushEvent":
         const commits = event.payload.commits?.length || 0
         day.count += commits
         day.details.commits += commits
         break
-      case 'PullRequestEvent':
-        if (event.payload.action === 'opened') {
+      case "PullRequestEvent":
+        if (event.payload.action === "opened") {
           day.count += 1
           day.details.pullRequests += 1
         }
         break
-      case 'IssuesEvent':
-        if (event.payload.action === 'opened') {
+      case "IssuesEvent":
+        if (event.payload.action === "opened") {
           day.count += 1
           day.details.issues += 1
         }
         break
-      case 'PullRequestReviewEvent':
+      case "PullRequestReviewEvent":
         day.count += 1
         day.details.reviews += 1
         break
     }
 
     // Calculate activity level (0-4)
-    day.level = day.count === 0 ? 0 :
-                day.count <= 2 ? 1 :
-                day.count <= 5 ? 2 :
-                day.count <= 10 ? 3 : 4
+    day.level = day.count === 0 ? 0 : day.count <= 2 ? 1 : day.count <= 5 ? 2 : day.count <= 10 ? 3 : 4
   })
 
   // Calculate streaks and monthly contributions
@@ -296,13 +293,13 @@ export function processEventsToContributions(events: GitHubEvent[]): {
       const dayDate = new Date(day.date)
       const twoDaysAgo = new Date()
       twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
-      
+
       if (dayDate >= twoDaysAgo && day.count > 0) {
         currentStreak = tempStreak
       }
 
       // Update monthly contributions
-      const month = new Date(day.date).toLocaleString('en-US', { month: 'short' })
+      const month = new Date(day.date).toLocaleString("en-US", { month: "short" })
       contributionsByMonth[month] = (contributionsByMonth[month] || 0) + day.count
       totalContributions += day.count
     })
@@ -326,7 +323,7 @@ export interface ContributionDay {
   date: string
   count: number
   level: 0 | 1 | 2 | 3 | 4
-  details?: {
+  details: {
     commits: number
     pullRequests: number
     issues: number

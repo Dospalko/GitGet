@@ -109,9 +109,6 @@ export function LanguageBreakdown({ languages, repos = [], isLoading = false }: 
   // For bar chart, sort by value
   const barData = [...formattedData].sort((a, b) => b.value - a.value)
 
-  // Calculate total repositories
-  const totalRepos = formattedData.reduce((sum, lang) => sum + lang.value, 0)
-
   // Filter out languages with very small percentages (less than 1%)
   const significantLanguages = languages.filter((lang) => lang.percentage >= 1)
 
@@ -154,7 +151,7 @@ export function LanguageBreakdown({ languages, repos = [], isLoading = false }: 
           {`${(percent * 100).toFixed(0)}%`}
         </text>
         <text x={cx} y={cy + 30} textAnchor="middle" fill="#999" className="text-sm">
-          {`${payload.value} repos`}
+          {formatBytes(payload.value)}
         </text>
         <Sector
           cx={cx}
@@ -175,7 +172,6 @@ export function LanguageBreakdown({ languages, repos = [], isLoading = false }: 
         <div className="flex justify-between items-start">
           <div>
             <CardTitle>Language Breakdown</CardTitle>
-            <CardDescription>Distribution of programming languages across repositories</CardDescription>
           </div>
           <Tabs value={viewType} onValueChange={(v) => setViewType(v as "pie" | "bar")} className="w-[180px]">
             <TabsList className="grid w-full grid-cols-2">
@@ -276,13 +272,17 @@ export function LanguageBreakdown({ languages, repos = [], isLoading = false }: 
             >
               <div className="w-4 h-4 rounded-full mb-2" style={{ backgroundColor: lang.color }}></div>
               <span className="font-medium text-sm">{lang.name}</span>
-              <span className="text-xs text-muted-foreground">{lang.value} repos</span>
+              <span className="text-xs text-muted-foreground">{formatBytes(lang.value)}</span>
             </motion.div>
           ))}
         </div>
 
         <div className="mt-6 text-sm text-center text-muted-foreground">
-          Total: <span className="font-medium text-foreground">{totalRepos}</span> repositories
+          Total:{" "}
+          <span className="font-medium text-foreground">
+            {formatBytes(formattedData.reduce((sum, lang) => sum + lang.value, 0))}
+          </span>{" "}
+          of code
         </div>
 
         {/* Language Details Dialog */}
@@ -364,10 +364,23 @@ const CustomTooltip = ({ active, payload }: CustomTooltipProps) => {
           <p className="font-medium text-foreground">{data.name}</p>
         </div>
         <p className="text-sm text-muted-foreground mt-1">
-          {data.value} repositories ({data.percentage.toFixed(1)}%)
+          {formatBytes(data.value)} ({data.percentage.toFixed(1)}%)
         </p>
       </Card>
     )
   }
   return null
+}
+
+function formatBytes(bytes: number): string {
+  const units = ["B", "KB", "MB", "GB"]
+  let value = bytes
+  let unitIndex = 0
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024
+    unitIndex++
+  }
+
+  return `${value.toFixed(1)} ${units[unitIndex]}`
 }
