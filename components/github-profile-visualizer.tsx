@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -10,7 +10,6 @@ import { UserProfile } from "@/components/user-profile"
 import { LanguageBreakdown } from "@/components/language-breakdown"
 import { ActivityHeatmap } from "@/components/activity-heatmap"
 import { TopRepositories } from "@/components/top-repositories"
-import { GitHubCVGenerator } from "@/components/github-cv-generator"
 import {
   fetchUser,
   fetchRepos,
@@ -94,10 +93,7 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
     <div className="space-y-6">
       {user && (
         <>
-          <div className="flex justify-between items-start">
-            <UserProfile user={user} />
-            <GitHubCVGenerator user={user} repos={repos} languages={languages} />
-          </div>
+          <UserProfile user={user} />
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card>
@@ -148,19 +144,7 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
             </TabsList>
 
             <TabsContent value="languages" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Language Breakdown</CardTitle>
-                  <CardDescription>Distribution of programming languages across repositories</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <LanguageBreakdown 
-                    languages={languages} 
-                    repos={repos} 
-                    isLoading={loading} 
-                  />
-                </CardContent>
-              </Card>
+              <LanguageBreakdown languages={languages} repos={repos} />
             </TabsContent>
 
             <TabsContent value="activity" className="mt-6">
@@ -173,15 +157,7 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
             </TabsContent>
 
             <TabsContent value="repositories" className="mt-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Top Repositories</CardTitle>
-                  <CardDescription>Most starred repositories</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <TopRepositories repos={repos} />
-                </CardContent>
-              </Card>
+              <TopRepositories repos={repos} />
             </TabsContent>
           </Tabs>
         </>
