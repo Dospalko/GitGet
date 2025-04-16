@@ -1,0 +1,23 @@
+.theme-light {
+  --widget-bg: #ffffff;
+  --widget-text: #000000;
+  --widget-muted: #6e7681;
+}
+
+.theme-dark {
+  --widget-bg: #1a1b1e;
+  --widget-text: #ffffff;
+  --widget-muted: #a1a1aa;
+}
+
+.theme-github {
+  --widget-bg: #0d1117;
+  --widget-text: #c9d1d9;
+  --widget-muted: #8b949e;
+}
+
+.theme-minimal {
+  --widget-bg: transparent;
+  --widget-text: #000000;
+  --widget-muted: #6e7681;
+}

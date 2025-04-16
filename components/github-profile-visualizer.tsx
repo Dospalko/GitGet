@@ -10,6 +10,7 @@ import { UserProfile } from "@/components/user-profile"
 import { LanguageBreakdown } from "@/components/language-breakdown"
 import { ActivityHeatmap } from "@/components/activity-heatmap"
 import { TopRepositories } from "@/components/top-repositories"
+import { WidgetGenerator } from "@/components/widget-generator"
 import {
   fetchUser,
   fetchRepos,
@@ -137,10 +138,11 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
           </div>
 
           <Tabs defaultValue="languages">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="languages">Languages</TabsTrigger>
               <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="repositories">Top Repositories</TabsTrigger>
+              <TabsTrigger value="widgets">Widgets</TabsTrigger>
             </TabsList>
 
             <TabsContent value="languages" className="mt-6">
@@ -158,6 +160,10 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
 
             <TabsContent value="repositories" className="mt-6">
               <TopRepositories repos={repos} />
+            </TabsContent>
+
+            <TabsContent value="widgets" className="mt-6">
+              <WidgetGenerator user={user} repos={repos} languages={languages} />
             </TabsContent>
           </Tabs>
         </>
