@@ -1,14 +1,14 @@
-import { ImageResponse } from 'next/server'
+import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
 import { fetchUser, fetchRepos, processLanguageData } from '@/lib/github'
 
-// Font loading for ImageResponse
+// Font loading for ImageResponse using Google Fonts CDN
 const interRegular = fetch(
-  new URL('/public/fonts/Inter-Regular.ttf', import.meta.url)
+  'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2'
 ).then((res) => res.arrayBuffer())
 
 const interBold = fetch(
-  new URL('/public/fonts/Inter-Bold.ttf', import.meta.url)
+  'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hiA.woff2'
 ).then((res) => res.arrayBuffer())
 
 export async function GET(
