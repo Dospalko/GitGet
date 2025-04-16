@@ -2,34 +2,23 @@ import { ImageResponse } from 'next/og'
 import { NextRequest } from 'next/server'
 import { fetchUser, fetchRepos, processLanguageData } from '@/lib/github'
 
-// Font loading for ImageResponse using Google Fonts CDN
-const interRegular = fetch(
-  'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hiA.woff2'
-).then((res) => res.arrayBuffer())
-
-const interBold = fetch(
-  'https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hiA.woff2'
-).then((res) => res.arrayBuffer())
-
 export async function GET(
   request: NextRequest,
   { params }: { params: { type: string } }
 ) {
-  const searchParams = request.nextUrl.searchParams
-  const username = searchParams.get('username')
-  const theme = searchParams.get('theme') || 'light'
-  const color = searchParams.get('color') || '#2563eb'
-
-  if (!username) {
-    return new Response('Username is required', { status: 400 })
-  }
-
   try {
-    const [user, repos, interRegularData, interBoldData] = await Promise.all([
+    const searchParams = request.nextUrl.searchParams
+    const username = searchParams.get('username')
+    const theme = searchParams.get('theme') || 'light'
+    const color = searchParams.get('color') || '#2563eb'
+
+    if (!username) {
+      return new Response('Username is required', { status: 400 })
+    }
+
+    const [user, repos] = await Promise.all([
       fetchUser(username),
       fetchRepos(username),
-      interRegular,
-      interBold,
     ])
 
     const languages = await processLanguageData(repos)
@@ -186,25 +175,18 @@ export async function GET(
       {
         width: 600,
         height: 200,
-        fonts: [
-          {
-            name: 'Inter',
-            data: interRegularData,
-            weight: 400,
-            style: 'normal',
-          },
-          {
-            name: 'Inter',
-            data: interBoldData,
-            weight: 700,
-            style: 'normal',
-          },
-        ],
+        // Remove the fonts configuration entirely
       }
     )
   } catch (error) {
     console.error('Error generating widget:', error)
-    return new Response('Error generating widget', { status: 500 })
+    return new Response(
+      JSON.stringify({ error: 'Failed to generate widget', details: error.message }),
+      { 
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    )
   }
 }
 

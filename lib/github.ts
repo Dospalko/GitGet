@@ -1,13 +1,14 @@
 // GitHub API client with authentication
 const GITHUB_API_BASE = "https://api.github.com"
+
+// Get token from environment variable
+const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_ACCESS_TOKEN
+
+// Always include headers with authentication
 const headers = {
   Accept: "application/vnd.github.v3+json",
   "User-Agent": "GitHub-Profile-Visualizer",
-}
-
-// Add authentication if token exists
-if (process.env.GITHUB_TOKEN) {
-  (headers as Record<string, string>)["Authorization"] = `token ${process.env.GITHUB_TOKEN}`
+  Authorization: `Bearer ${GITHUB_TOKEN}`,
 }
 
 // Define types for GitHub API responses
@@ -112,7 +113,7 @@ async function fetchWithCache<T>(url: string): Promise<T> {
 
     if (!response.ok) {
       if (response.status === 403 && response.headers.get("X-RateLimit-Remaining") === "0") {
-        throw new Error("GitHub API rate limit exceeded. Please try again later or use an access token.")
+        throw new Error("GitHub API rate limit exceeded. Please ensure GITHUB_TOKEN is configured correctly.")
       }
       throw new Error(`GitHub API error: ${response.status} - ${await response.text()}`)
     }

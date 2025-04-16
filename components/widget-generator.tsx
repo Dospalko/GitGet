@@ -8,6 +8,7 @@ import { ColorPicker } from "@/components/ui/color-picker"
 import { WidgetPreview } from "@/components/widget-preview"
 import { Download, Copy, Image } from "lucide-react"
 import type { GitHubUser, GitHubRepo, GitHubLanguage } from "@/lib/github"
+import { toast } from "@/components/ui/use-toast"
 
 interface WidgetGeneratorProps {
   user: GitHubUser
@@ -30,11 +31,27 @@ export function WidgetGenerator({ user, repos, languages }: WidgetGeneratorProps
       const widgetUrl = `${baseUrl}/api/widgets/${selectedWidget}?username=${user.login}&theme=${selectedTheme}&color=${encodeURIComponent(primaryColor)}${selectedRepo ? `&repo=${selectedRepo}` : ''}`
       
       const response = await fetch(widgetUrl)
+      if (!response.ok) {
+        let errorMessage = 'Failed to generate image'
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.details || errorData.error || errorMessage
+        } catch {
+          errorMessage = await response.text() || errorMessage
+        }
+        throw new Error(errorMessage)
+      }
+      
       const blob = await response.blob()
       const url = URL.createObjectURL(blob)
       setImageUrl(url)
     } catch (error) {
       console.error('Error generating image:', error)
+      toast({
+        title: "Error generating image",
+        description: error.message || "Please try again later",
+        variant: "destructive",
+      })
     } finally {
       setIsGenerating(false)
     }
