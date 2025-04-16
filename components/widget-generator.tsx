@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ColorPicker } from "@/components/ui/color-picker"
 import type { GitHubUser, GitHubRepo, GitHubLanguage } from "@/lib/github"
+import { WidgetPreview } from "./widget-preview"
 
 interface WidgetGeneratorProps {
   user: GitHubUser
