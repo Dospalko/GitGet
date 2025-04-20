@@ -1,17 +1,53 @@
-// GitHub API client with authentication
+// lib/github.ts
+// Shared GitHub client logic with server‑side caching + client‑side proxy to our API
+
+// Base URL for GitHub REST API
 const GITHUB_API_BASE = "https://api.github.com"
 
-// Get token from environment variable
+// Read token from env (only available on server)
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN || process.env.GITHUB_ACCESS_TOKEN
 
-// Always include headers with authentication
-const headers = {
+// Default headers for server‑side fetches
+const serverHeaders = {
   Accept: "application/vnd.github.v3+json",
   "User-Agent": "GitHub-Profile-Visualizer",
   Authorization: `Bearer ${GITHUB_TOKEN}`,
 }
 
-// Define types for GitHub API responses
+// Utility: detect if code is running in the browser
+const isBrowser = typeof window !== "undefined"
+
+// --- Server‑side cache setup ---
+interface CacheEntry<T> {
+  data: T
+  timestamp: number
+}
+const cache = new Map<string, CacheEntry<any>>()
+const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+
+/**
+ * Server‑side fetch with in‑memory cache.
+ */
+async function fetchWithCache<T>(url: string): Promise<T> {
+  const cached = cache.get(url)
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data as T
+  }
+
+  const response = await fetch(url, { headers: serverHeaders })
+  if (!response.ok) {
+    if (response.status === 403 && response.headers.get("X-RateLimit-Remaining") === "0") {
+      throw new Error("GitHub API rate limit exceeded. Check your GITHUB_TOKEN.")
+    }
+    throw new Error(`GitHub API error: ${response.status} - ${await response.text()}`)
+  }
+
+  const data = await response.json()
+  cache.set(url, { data, timestamp: Date.now() })
+  return data as T
+}
+
+// --- Type definitions for GitHub data ---
 export interface GitHubUser {
   login: string
   name: string
@@ -52,9 +88,7 @@ export interface GitHubEvent {
   id: string
   type: string
   created_at: string
-  repo: {
-    name: string
-  }
+  repo: { name: string }
   payload: any
 }
 
@@ -65,7 +99,7 @@ export interface GitHubLanguage {
   percentage: number
 }
 
-// Language colors mapping
+// Mapping of popular languages to colors
 export const LANGUAGE_COLORS: Record<string, string> = {
   JavaScript: "#f1e05a",
   TypeScript: "#3178c6",
@@ -89,62 +123,47 @@ export const LANGUAGE_COLORS: Record<string, string> = {
   Dockerfile: "#384d54",
   Makefile: "#427819",
 }
-
-// Default color for languages not in the map
 const DEFAULT_COLOR = "#6e7681"
 
-// Enhanced cache with type safety
-interface CacheEntry<T> {
-  data: T
-  timestamp: number
-}
+// --- Client‑side proxy or server‑side direct fetch ---
 
-const cache = new Map<string, CacheEntry<any>>()
-const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
-
-async function fetchWithCache<T>(url: string): Promise<T> {
-  const cached = cache.get(url)
-  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-    return cached.data as T
-  }
-
-  try {
-    const response = await fetch(url, { headers })
-
-    if (!response.ok) {
-      if (response.status === 403 && response.headers.get("X-RateLimit-Remaining") === "0") {
-        throw new Error("GitHub API rate limit exceeded. Please ensure GITHUB_TOKEN is configured correctly.")
-      }
-      throw new Error(`GitHub API error: ${response.status} - ${await response.text()}`)
-    }
-
-    const data = await response.json()
-    cache.set(url, { data, timestamp: Date.now() })
-    return data as T
-  } catch (error) {
-    console.error("Error fetching from GitHub API:", error)
-    throw error
-  }
-}
-
-// Fetch user profile data
+/**
+ * Fetch a single GitHub user.
+ * - In browser: proxies to our `/api/github/[username]` route (hides token).
+ * - On server: fetches directly from GitHub with caching.
+ */
 export async function fetchUser(username: string): Promise<GitHubUser> {
+  if (isBrowser) {
+    const res = await fetch(`/api/github/${username}`)
+    const { user, error } = await res.json()
+    if (!res.ok) throw new Error(error || "Unknown error fetching user")
+    return user
+  }
   return fetchWithCache<GitHubUser>(`${GITHUB_API_BASE}/users/${username}`)
 }
 
-// Fetch all repositories with pagination
+/**
+ * Fetch all repos for a user with pagination.
+ * - In browser: proxies to our API route.
+ * - On server: uses fetchWithCache and loops pages.
+ */
 export async function fetchRepos(username: string): Promise<GitHubRepo[]> {
+  if (isBrowser) {
+    const res = await fetch(`/api/github/${username}`)
+    const { repos, error } = await res.json()
+    if (!res.ok) throw new Error(error || "Unknown error fetching repos")
+    return repos
+  }
+
   const allRepos: GitHubRepo[] = []
   let page = 1
   const perPage = 100
 
   while (true) {
     const repos = await fetchWithCache<GitHubRepo[]>(
-      `${GITHUB_API_BASE}/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`,
+      `${GITHUB_API_BASE}/users/${username}/repos?per_page=${perPage}&page=${page}&sort=updated`
     )
-
     allRepos.push(...repos)
-
     if (repos.length < perPage) break
     page++
   }
@@ -152,21 +171,28 @@ export async function fetchRepos(username: string): Promise<GitHubRepo[]> {
   return allRepos
 }
 
-// Fetch user events with better type safety
+/**
+ * Fetch recent events for a user (up to 300).
+ * - In browser: proxies to our API route.
+ * - On server: loops through pages with caching.
+ */
 export async function fetchEvents(username: string): Promise<GitHubEvent[]> {
-  // Fetch multiple pages of events for better coverage
-  const allEvents: GitHubEvent[] = []
-  const pages = 3 // Fetch 3 pages of events (300 events)
-
-  for (let page = 1; page <= pages; page++) {
-    const events = await fetchWithCache<GitHubEvent[]>(
-      `${GITHUB_API_BASE}/users/${username}/events?per_page=100&page=${page}`,
-    )
-    allEvents.push(...events)
-
-    if (events.length < 100) break // Stop if we get less than a full page
+  if (isBrowser) {
+    const res = await fetch(`/api/github/${username}`)
+    const { events, error } = await res.json()
+    if (!res.ok) throw new Error(error || "Unknown error fetching events")
+    return events
   }
 
+  const allEvents: GitHubEvent[] = []
+  const pages = 3
+  for (let page = 1; page <= pages; page++) {
+    const events = await fetchWithCache<GitHubEvent[]>(
+      `${GITHUB_API_BASE}/users/${username}/events?per_page=100&page=${page}`
+    )
+    allEvents.push(...events)
+    if (events.length < 100) break
+  }
   return allEvents
 }
 
