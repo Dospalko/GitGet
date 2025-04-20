@@ -244,7 +244,7 @@ export function LanguageBreakdown({ languages, repos = [], isLoading = false }: 
                 <Tooltip content={<CustomTooltip />} />
                 <Bar
                   dataKey="value"
-                  nameKey="name"
+                  name="Language"
                   animationDuration={1000}
                   animationBegin={0}
                   animationEasing="ease-out"
