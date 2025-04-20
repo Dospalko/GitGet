@@ -1,11 +1,12 @@
-"use client"
-
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Skeleton } from "@/components/ui/skeleton"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { AlertCircle, BookIcon, GitForkIcon, StarIcon } from "lucide-react"
+
+// Import our custom loading animation
+import { LoadingAnimation } from "@/components/loading-animation"
+
 import { UserProfile } from "@/components/user-profile"
 import { LanguageBreakdown } from "@/components/language-breakdown"
 import { ActivityHeatmap } from "@/components/activity-heatmap"
@@ -29,7 +30,9 @@ interface GitHubProfileVisualizerProps {
   username: string
 }
 
+// Main visualizer component fetching and displaying GitHub data
 export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerProps) {
+  // Local state for data, loading and errors
   const [user, setUser] = useState<GitHubUser | null>(null)
   const [repos, setRepos] = useState<GitHubRepo[]>([])
   const [events, setEvents] = useState<GitHubEvent[]>([])
@@ -45,23 +48,23 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
       setError(null)
 
       try {
-        // Fetch user data
+        // 1. Fetch user profile
         const userData = await fetchUser(username)
         setUser(userData)
 
-        // Fetch repositories
+        // 2. Fetch repos
         const reposData = await fetchRepos(username)
         setRepos(reposData)
 
-        // Process language data
+        // 3. Compute language stats
         const languageData = await processLanguageData(reposData)
         setLanguages(languageData)
 
-        // Fetch events for contribution data
+        // 4. Fetch events for contribution heatmap
         const eventsData = await fetchEvents(username)
         setEvents(eventsData)
 
-        // Process events into contribution data
+        // 5. Process events into contribution days and summary
         const { contributionDays, activitySummary } = processEventsToContributions(eventsData)
         setContributionData(contributionDays)
         setActivitySummary(activitySummary)
@@ -69,6 +72,7 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
         setError(err instanceof Error ? err.message : "An unknown error occurred")
         console.error("Error fetching GitHub data:", err)
       } finally {
+        // Stop loading spinner
         setLoading(false)
       }
     }
@@ -76,10 +80,12 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
     fetchGitHubData()
   }, [username])
 
+  // Show our custom loader while data is fetching
   if (loading) {
-    return <LoadingState />
+    return <LoadingAnimation />
   }
 
+  // Show error if something went wrong during fetch
   if (error) {
     return (
       <Alert variant="destructive" className="mb-6">
@@ -90,6 +96,7 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
     )
   }
 
+  // Once loaded and no errors, render the visualizations
   return (
     <div className="space-y-6">
       {user && (
@@ -105,8 +112,12 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{repos.reduce((sum, repo) => sum + repo.stargazers_count, 0)}</p>
-                <p className="text-muted-foreground text-sm">Total stars across all repositories</p>
+                <p className="text-3xl font-bold">
+                  {repos.reduce((sum, repo) => sum + repo.stargazers_count, 0)}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Total stars across all repositories
+                </p>
               </CardContent>
             </Card>
 
@@ -131,8 +142,12 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-3xl font-bold">{repos.reduce((sum, repo) => sum + repo.forks_count, 0)}</p>
-                <p className="text-muted-foreground text-sm">Total forks across all repositories</p>
+                <p className="text-3xl font-bold">
+                  {repos.reduce((sum, repo) => sum + repo.forks_count, 0)}
+                </p>
+                <p className="text-muted-foreground text-sm">
+                  Total forks across all repositories
+                </p>
               </CardContent>
             </Card>
           </div>
@@ -168,45 +183,6 @@ export function GitHubProfileVisualizer({ username }: GitHubProfileVisualizerPro
           </Tabs>
         </>
       )}
-    </div>
-  )
-}
-
-function LoadingState() {
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row gap-6 items-start">
-        <Skeleton className="h-24 w-24 rounded-full" />
-        <div className="space-y-2 flex-1">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-full max-w-md" />
-          <Skeleton className="h-4 w-full max-w-sm" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {[1, 2, 3].map((i) => (
-          <Card key={i}>
-            <CardHeader className="pb-2">
-              <Skeleton className="h-6 w-24" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-16 mb-2" />
-              <Skeleton className="h-4 w-full" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-48 mb-2" />
-          <Skeleton className="h-4 w-full max-w-md" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-64 w-full" />
-        </CardContent>
-      </Card>
     </div>
   )
 }
