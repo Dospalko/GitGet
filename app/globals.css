@@ -48,3 +48,19 @@
 .grid-cols-53 {
   grid-template-columns: repeat(53, minmax(0, 1fr));
 }
+
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.pattern-grid {
+  animation: float 10s ease-in-out infinite;
+}

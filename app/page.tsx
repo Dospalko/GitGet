@@ -1,12 +1,48 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { GitHubProfileVisualizer } from "@/components/github-profile-visualizer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { GithubIcon, BarChart3, PieChart, LineChart, Activity, Code2, Star, LogIn, ChevronRight } from 'lucide-react'
 import { LoginDialog } from "@/components/login-dialog"
+
+// Create a separate component for the background pattern
+const BackgroundPattern = () => {
+  // Use useCallback to memoize the pattern generation
+  const generatePattern = useCallback(() => {
+    return Array.from({ length: 120 }).map((_, i) => {
+      const opacity    = parseFloat((Math.sin(i * 0.1) * 0.3 + 0.2).toFixed(3))
+      const translateX = parseFloat((Math.cos(i * 0.2) * 10).toFixed(3))
+      const translateY = parseFloat((Math.sin(i * 0.2) * 10).toFixed(3))
+      return { id: i, opacity, translateX, translateY }
+    })
+  }, [])
+
+
+  const pattern = generatePattern()
+
+  return (
+    <div className="absolute inset-0 opacity-5">
+      <div className="absolute top-10 left-10 w-40 h-40 rounded-full bg-primary/30 blur-3xl" />
+      <div className="absolute top-60 right-20 w-60 h-60 rounded-full bg-blue-500/30 blur-3xl" />
+      <div className="absolute bottom-20 left-1/3 w-40 h-40 rounded-full bg-emerald-500/30 blur-3xl" />
+      
+      <div className="grid grid-cols-12 gap-4 p-4 h-full w-full pattern-grid">
+        {pattern.map(({ id, opacity, translateX, translateY }) => (
+          <div 
+            key={id} 
+            className="h-4 w-4 rounded-sm bg-primary/10"
+            style={{ 
+              opacity,
+              transform: `translate(${translateX}px, ${translateY}px)`
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function Home() {
   const [username, setUsername] = useState("")
@@ -44,25 +80,7 @@ export default function Home() {
       <section className="relative">
         {/* Background with gradient and pattern */}
         <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-background z-0 overflow-hidden">
-          <div className="absolute inset-0 opacity-5">
-            <div className="absolute top-10 left-10 w-40 h-40 rounded-full bg-primary/30 blur-3xl"></div>
-            <div className="absolute top-60 right-20 w-60 h-60 rounded-full bg-blue-500/30 blur-3xl"></div>
-            <div className="absolute bottom-20 left-1/3 w-40 h-40 rounded-full bg-emerald-500/30 blur-3xl"></div>
-            
-            {/* GitHub-like grid pattern */}
-            <div className="grid grid-cols-12 gap-4 p-4 h-full w-full">
-              {Array.from({ length: 120 }).map((_, i) => (
-                <div 
-                  key={i} 
-                  className="h-4 w-4 rounded-sm bg-primary/10"
-                  style={{ 
-                    opacity: Math.random() * 0.5,
-                    transform: `translate(${Math.random() * 20}px, ${Math.random() * 20}px)`
-                  }}
-                ></div>
-              ))}
-            </div>
-          </div>
+          <BackgroundPattern />
         </div>
 
         <div className="max-w-7xl mx-auto px-4 py-20 md:py-32 relative z-1">
