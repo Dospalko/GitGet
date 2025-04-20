@@ -7,21 +7,25 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { GithubIcon, BarChart3, PieChart, LineChart, Activity, Code2, Star, LogIn, ChevronRight } from 'lucide-react'
 import { LoginDialog } from "@/components/login-dialog"
+import { LoadingAnimation } from "@/components/loading-animation"
 
 export default function Home() {
   const [username, setUsername] = useState("")
   const [searchedUsername, setSearchedUsername] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
   const [showLoginDialog, setShowLoginDialog] = useState(false)
 
-  const handleSearch = (e: React.FormEvent) => {
+  const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (username.trim()) {
-      setSearchedUsername(username)
-      // Scroll to results
-      setTimeout(() => {
-        document.getElementById("results")?.scrollIntoView({ behavior: "smooth" })
-      }, 100)
-    }
+    if (!username.trim()) return
+
+    setIsLoading(true)
+    setSearchedUsername(username)
+    
+    // Scroll to results
+    setTimeout(() => {
+      document.getElementById("results")?.scrollIntoView({ behavior: "smooth" })
+    }, 100)
   }
 
   return (
@@ -145,7 +149,14 @@ export default function Home() {
       {searchedUsername && (
         <section id="results" className="py-8 flex-1">
           <div className="max-w-7xl mx-auto px-4">
-            <GitHubProfileVisualizer username={searchedUsername} />
+            {isLoading ? (
+              <LoadingAnimation />
+            ) : (
+              <GitHubProfileVisualizer 
+                username={searchedUsername} 
+                onLoadingComplete={() => setIsLoading(false)} 
+              />
+            )}
           </div>
         </section>
       )}
