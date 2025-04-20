@@ -195,16 +195,24 @@ export function ActivityHeatmap({ username, contributionData, activitySummary, r
   })
 
   // Fill in any missing days with empty data
-  for (let i = 0; i < allDaysInMonth.length; i++) {
-    if (allDaysInMonth[i] === null) {
-      const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i + 1)
-      allDaysInMonth[i] = {
-        date: date.toISOString().split("T")[0],
-        count: 0,
-        level: 0,
-      }
+for (let i = 0; i < allDaysInMonth.length; i++) {
+  if (allDaysInMonth[i] === null) {
+    const date = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), i + 1)
+    allDaysInMonth[i] = {
+      date: date.toISOString().split("T")[0],
+      count: 0,
+      level: 0,
+      // pridané defaultné details, aby to zodpovedalo typu ContributionDay
+      details: {
+        commits:      0,
+        pullRequests: 0,
+        issues:       0,
+        reviews:      0,
+      },
     }
   }
+}
+
 
   return (
     <div className="space-y-6">
